@@ -50,8 +50,9 @@ func initUser(db *gorm.DB) *web.UserHandler {
 func initWebServer() *gin.Engine {
 	server := gin.Default()
 	server.Use(cors.New(cors.Config{
-		AllowMethods:  []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
-		AllowHeaders:  []string{"Content-Type", "Authorization"},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
+		AllowHeaders: []string{"Content-Type", "Authorization"},
+		// 让前端能读到
 		ExposeHeaders: []string{"x-jwt-token"},
 		// 是否允许带 cookie 之类的东西
 		AllowCredentials: true,
@@ -74,7 +75,7 @@ func initWebServer() *gin.Engine {
 	}
 	server.Use(sessions.Sessions("mysession", store))
 
-	server.Use(middleware.NewLoginMiddlewareBuilder().
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signup").
 		IgnorePaths("/users/login").
 		Build())
