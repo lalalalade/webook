@@ -3,13 +3,15 @@ package main
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
+	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
 	"github.com/lalalalade/webook/internal/repository"
 	"github.com/lalalalade/webook/internal/repository/dao"
 	"github.com/lalalalade/webook/internal/service"
 	"github.com/lalalalade/webook/internal/web"
 	"github.com/lalalalade/webook/internal/web/middleware"
+	"github.com/lalalalade/webook/pkg/ginx/middlewares/ratelimit"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"strings"
@@ -49,6 +51,10 @@ func initUser(db *gorm.DB) *web.UserHandler {
 
 func initWebServer() *gin.Engine {
 	server := gin.Default()
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
 	server.Use(cors.New(cors.Config{
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
@@ -66,13 +72,10 @@ func initWebServer() *gin.Engine {
 	}))
 
 	//store := cookie.NewStore([]byte("secret"))
-	//store := memstore.NewStore([]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"),
-	//	[]byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
-	store, err := redis.NewStore(16, "tcp", "localhost:6379", "",
-		[]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"), []byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
-	if err != nil {
-		panic(err)
-	}
+	store := memstore.NewStore([]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"),
+		[]byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
+	//store, err := redis.NewStore(16, "tcp", "localhost:6379", "",
+	//	[]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"), []byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
 	server.Use(sessions.Sessions("mysession", store))
 
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
