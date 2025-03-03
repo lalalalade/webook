@@ -7,7 +7,7 @@ spec:
     app: webook-live-redis
   ports:
     - protocol: TCP
-      port: 6379
+      port: 11479
       targetPort: 6379
       nodePort: 30003
   type: NodePort
