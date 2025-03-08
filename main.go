@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
 	"github.com/lalalalade/webook/config"
 	"github.com/lalalalade/webook/internal/repository"
@@ -77,11 +75,11 @@ func initWebServer() *gin.Engine {
 	}))
 
 	//store := cookie.NewStore([]byte("secret"))
-	store := memstore.NewStore([]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"),
-		[]byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
+	//store := memstore.NewStore([]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"),
+	//[]byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
 	//store, err := redis.NewStore(16, "tcp", "localhost:6379", "",
 	//	[]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"), []byte("Xk9Lm4nB7vR2qZ8tYw3pD6sF1gH5jKcV"))
-	server.Use(sessions.Sessions("mysession", store))
+	//server.Use(sessions.Sessions("mysession", store))
 
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signup").

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"github.com/lalalalade/webook/internal/domain"
+	"github.com/lalalalade/webook/internal/repository/cache"
 	"github.com/lalalalade/webook/internal/repository/dao"
 )
 
@@ -12,18 +13,42 @@ var (
 )
 
 type UserRepository struct {
-	dao *dao.UserDAO
+	dao   *dao.UserDAO
+	cache *cache.UserCache
 }
 
-func NewUserRepository(dao *dao.UserDAO) *UserRepository {
+func NewUserRepository(dao *dao.UserDAO, c *cache.UserCache) *UserRepository {
 	return &UserRepository{
-		dao: dao,
+		dao:   dao,
+		cache: c,
 	}
 }
-func (r *UserRepository) FindById(id int64) {
-	// 先从 cache 里面找
-	// 再从 dao 里面找
-	// 找到了回写 cache
+
+func (r *UserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
+	u, err := r.cache.Get(ctx, id)
+	// 缓存里面有数据
+	if err == nil {
+		return u, err
+	}
+	// 缓存里面没有数据 -- 去数据库里加载
+	// 缓存出错了 是否加载？
+	// 加载 --> 做好兜底 --> 限流
+	ue, err := r.dao.FindById(ctx, id)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	u = domain.User{
+		Id:       ue.Id,
+		Email:    ue.Email,
+		Password: ue.Password,
+	}
+	err = r.cache.Set(ctx, u)
+	if err != nil {
+		// 打日志 做监控
+		return domain.User{}, err
+	}
+	return u, err
 }
 
 func (r *UserRepository) Create(ctx context.Context, u domain.User) error {
