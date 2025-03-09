@@ -3,7 +3,7 @@
 local key = KEYS[1]
 -- 记录了验证了几次
 -- phone_code:login:186XXXXXXXX:cnt
-local cntKey = key.."cnt"
+local cntKey = key..":cnt"
 -- 验证码
 local val = ARGV[1]
 -- 过期时间

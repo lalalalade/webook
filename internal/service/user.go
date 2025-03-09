@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrUserDuplicateEmail = repository.ErrUserDuplicateEmail
+var ErrUserDuplicate = repository.ErrUserDuplicate
 var ErrInvalidUserOrPassword = errors.New("账号/邮箱或密码不正确")
 
 type UserService struct {
@@ -46,6 +46,29 @@ func (svc *UserService) Login(ctx context.Context, email, password string) (doma
 	return u, nil
 }
 
+func (svc *UserService) FindOrCreate(ctx context.Context, phone string) (domain.User, error) {
+	u, err := svc.repo.FindByPhone(ctx, phone)
+	// 判断有没有用户
+	if err != repository.ErrUserNotFound {
+		// 绝大部分请求进来这里
+		return u, err
+	}
+	// 触发降级
+	//if ctx.Value("降级") == "true" {
+	//	return domain.User{}, errors.New("系统降级了")
+	//}
+	// 慢路径
+	// 没有这个用户
+	u = domain.User{
+		Phone: phone,
+	}
+	err = svc.repo.Create(ctx, u)
+	if err != nil && err != repository.ErrUserDuplicate {
+		return u, err
+	}
+	// 有主从延迟的问题
+	return svc.repo.FindByPhone(ctx, phone)
+}
 func (svc *UserService) Profile(ctx context.Context, id int64) (domain.User, error) {
 	// 从缓存取
 	panic("implement me")

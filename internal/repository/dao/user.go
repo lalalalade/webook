@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -9,8 +10,8 @@ import (
 )
 
 var (
-	ErrUserDuplicateEmail = errors.New("邮箱冲突")
-	ErrUserNotFound       = gorm.ErrRecordNotFound
+	ErrUserDuplicate = errors.New("邮箱冲突或手机号冲突")
+	ErrUserNotFound  = gorm.ErrRecordNotFound
 )
 
 type UserDAO struct {
@@ -31,7 +32,7 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		const uniqueConflictsErrNo uint16 = 1062
 		if mysqlErr.Number == uniqueConflictsErrNo {
-			return ErrUserDuplicateEmail
+			return ErrUserDuplicate
 		}
 	}
 	return err
@@ -49,13 +50,21 @@ func (dao *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
 	return u, err
 }
 
+func (dao *UserDAO) FindByPhone(ctx context.Context, phone string) (User, error) {
+	var u User
+	err := dao.db.WithContext(ctx).Where("phone = ?", phone).First(&u).Error
+	return u, err
+}
+
 // User 直接对应数据库表结构
 // entity or model or PO
 type User struct {
-	Id       int64  `gorm:"primaryKey;autoIncrement"`
-	Email    string `gorm:"unique"`
+	Id       int64          `gorm:"primaryKey;autoIncrement"`
+	Email    sql.NullString `gorm:"unique"`
 	Password string
-
+	// 唯一索引允许有多个空值
+	// 但是不能有多个空字符串
+	Phone sql.NullString `gorm:"unique"`
 	Ctime int64
 	UTime int64
 }
