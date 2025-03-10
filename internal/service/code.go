@@ -15,6 +15,8 @@ var (
 	ErrCodeVerifyTooManyTimes = repository.ErrCodeVerifyTooManyTimes
 )
 
+var _ CodeService = (*codeService)(nil)
+
 type CodeService interface {
 	Send(ctx context.Context, biz, phone string) error
 	Verify(ctx context.Context, biz, phone, inputCode string) (bool, error)

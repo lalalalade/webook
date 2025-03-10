@@ -11,6 +11,8 @@ import (
 
 var ErrKeyNotExist = redis.Nil
 
+var _ UserCache = (*RedisUserCache)(nil)
+
 type UserCache interface {
 	Get(ctx context.Context, id int64) (domain.User, error)
 	Set(ctx context.Context, user domain.User) error

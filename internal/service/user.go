@@ -11,6 +11,8 @@ import (
 var ErrUserDuplicate = repository.ErrUserDuplicate
 var ErrInvalidUserOrPassword = errors.New("账号/邮箱或密码不正确")
 
+var _ UserService = (*userService)(nil)
+
 type UserService interface {
 	Signup(ctx context.Context, u domain.User) error
 	Login(ctx context.Context, email, password string) (domain.User, error)

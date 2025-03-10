@@ -14,6 +14,8 @@ var (
 	ErrUserNotFound  = dao.ErrUserNotFound
 )
 
+var _ UserRepository = (*CachedUserRepository)(nil)
+
 type UserRepository interface {
 	FindById(ctx context.Context, id int64) (domain.User, error)
 	Create(ctx context.Context, u domain.User) error

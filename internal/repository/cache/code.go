@@ -20,6 +20,8 @@ var luaSetCode string
 //go:embed lua/verify_code.lua
 var luaVerifyCode string
 
+var _ CodeCache = (*RedisCodeCache)(nil)
+
 type CodeCache interface {
 	Set(ctx context.Context, biz, phone, code string) error
 	Verify(ctx context.Context, biz, phone, inputCode string) (bool, error)
