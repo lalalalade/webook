@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lalalalade/webook/internal/web"
 	"github.com/lalalalade/webook/internal/web/middleware"
-	"github.com/lalalalade/webook/pkg/ginx/middlewares/ratelimit"
 	"github.com/redis/go-redis/v9"
 	"strings"
 	"time"
@@ -27,7 +26,7 @@ func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
 			IgnorePaths("/users/login_sms").
 			IgnorePaths("/users/login").
 			Build(),
-		ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
+		//ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
 	}
 }
 
