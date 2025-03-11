@@ -6,11 +6,9 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/lalalalade/webook/internal/domain"
 	"github.com/lalalalade/webook/internal/service"
 	"net/http"
-	"time"
 )
 
 var _ handler = (*UserHandler)(nil)
@@ -23,6 +21,7 @@ type UserHandler struct {
 	codeSvc     service.CodeService
 	emailExp    *regexp.Regexp
 	passwordExp *regexp.Regexp
+	jwtHandler
 }
 
 func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
@@ -165,24 +164,6 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	return
 }
 
-func (u *UserHandler) setJWTToken(ctx *gin.Context, uid int64) error {
-	// 用 JWT 设置登录态
-	claims := UserClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
-		},
-		Uid:       uid,
-		UserAgent: ctx.Request.UserAgent(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-	tokenStr, err := token.SignedString([]byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV"))
-	if err != nil {
-		return err
-	}
-	ctx.Header("x-jwt-token", tokenStr)
-	return nil
-}
-
 func (u *UserHandler) LoginSMS(ctx *gin.Context) {
 	type Req struct {
 		Phone string `json:"phone"`
@@ -288,11 +269,4 @@ func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
 			Msg:  "系统错误",
 		})
 	}
-}
-
-type UserClaims struct {
-	jwt.RegisteredClaims
-	// 声明自己要放进 token 里面的数据
-	Uid       int64
-	UserAgent string
 }

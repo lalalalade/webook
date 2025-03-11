@@ -21,6 +21,7 @@ type UserDAO interface {
 	FindByEmail(ctx context.Context, email string) (User, error)
 	FindById(ctx context.Context, id int64) (User, error)
 	FindByPhone(ctx context.Context, phone string) (User, error)
+	FindByWechat(ctx context.Context, openId string) (User, error)
 }
 
 type GORMUserDAO struct {
@@ -65,6 +66,12 @@ func (dao *GORMUserDAO) FindByPhone(ctx context.Context, phone string) (User, er
 	return u, err
 }
 
+func (dao *GORMUserDAO) FindByWechat(ctx context.Context, openId string) (User, error) {
+	var u User
+	err := dao.db.WithContext(ctx).Where("wechat_open_id = ?", openId).First(&u).Error
+	return u, err
+}
+
 // User 直接对应数据库表结构
 // entity or model or PO
 type User struct {
@@ -74,6 +81,9 @@ type User struct {
 	// 唯一索引允许有多个空值
 	// 但是不能有多个空字符串
 	Phone sql.NullString `gorm:"unique"`
-	Ctime int64
-	UTime int64
+
+	WechatUnionId sql.NullString
+	WechatOpenId  sql.NullString `gorm:"unique"`
+	Ctime         int64
+	UTime         int64
 }

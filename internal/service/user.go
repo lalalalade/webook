@@ -17,6 +17,7 @@ type UserService interface {
 	Signup(ctx context.Context, u domain.User) error
 	Login(ctx context.Context, email, password string) (domain.User, error)
 	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
+	FindOrCreateByWechat(ctx context.Context, wechatInfo domain.WechatInfo) (domain.User, error)
 	Profile(ctx context.Context, id int64) (domain.User, error)
 }
 
@@ -79,6 +80,24 @@ func (svc *userService) FindOrCreate(ctx context.Context, phone string) (domain.
 	// 有主从延迟的问题
 	return svc.repo.FindByPhone(ctx, phone)
 }
+func (svc *userService) FindOrCreateByWechat(ctx context.Context, info domain.WechatInfo) (domain.User, error) {
+	u, err := svc.repo.FindByWechat(ctx, info.OpenId)
+	// 判断有没有用户
+	if err != repository.ErrUserNotFound {
+		// 绝大部分请求进来这里
+		return u, err
+	}
+	u = domain.User{
+		WechatInfo: info,
+	}
+	err = svc.repo.Create(ctx, u)
+	if err != nil && err != repository.ErrUserDuplicate {
+		return u, err
+	}
+	// 有主从延迟的问题
+	return svc.repo.FindByWechat(ctx, info.OpenId)
+}
+
 func (svc *userService) Profile(ctx context.Context, id int64) (domain.User, error) {
 	// 从缓存取
 	panic("implement me")
