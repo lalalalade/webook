@@ -10,6 +10,7 @@ import (
 	"github.com/lalalalade/webook/internal/repository/dao"
 	"github.com/lalalalade/webook/internal/service"
 	"github.com/lalalalade/webook/internal/web"
+	ijwt "github.com/lalalalade/webook/internal/web/jwt"
 	"github.com/lalalalade/webook/ioc"
 )
 
@@ -28,7 +29,7 @@ func InitWebServer() *gin.Engine {
 		service.NewUserService, service.NewCodeService,
 		ioc.InitSMSService, ioc.InitOAuth2WechatService, ioc.NewWechatHandlerConfig,
 
-		web.NewUserHandler, web.NewOAuth2WechatHandler,
+		web.NewUserHandler, web.NewOAuth2WechatHandler, ijwt.NewRedisJWTHandler,
 		ioc.InitWebServer,
 		ioc.InitMiddlewares,
 	)

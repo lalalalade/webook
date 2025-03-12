@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lalalalade/webook/internal/service"
 	"github.com/lalalalade/webook/internal/service/oauth2/wechat"
+	ijwt "github.com/lalalalade/webook/internal/web/jwt"
 	uuid "github.com/lithammer/shortuuid/v4"
 	"net/http"
 	"time"
@@ -15,7 +16,7 @@ import (
 type OAuth2WechatHandler struct {
 	svc     wechat.Service
 	userSvc service.UserService
-	jwtHandler
+	ijwt.Handler
 	stateKey []byte
 	cfg      WechatHandlerConfig
 }
@@ -24,12 +25,14 @@ type WechatHandlerConfig struct {
 	Secure bool
 }
 
-func NewOAuth2WechatHandler(svc wechat.Service, userSvc service.UserService, cfg WechatHandlerConfig) *OAuth2WechatHandler {
+func NewOAuth2WechatHandler(svc wechat.Service, userSvc service.UserService,
+	cfg WechatHandlerConfig, jwtHdl ijwt.Handler) *OAuth2WechatHandler {
 	return &OAuth2WechatHandler{
 		svc:      svc,
 		userSvc:  userSvc,
 		cfg:      cfg,
 		stateKey: []byte("7aB3rR9qFyZx6TgKpL8HjD2N4vM5cW1sV1"),
+		Handler:  jwtHdl,
 	}
 }
 
@@ -106,7 +109,7 @@ func (h *OAuth2WechatHandler) Callback(ctx *gin.Context) {
 		})
 		return
 	}
-	err = h.setJWTToken(ctx, u.Id)
+	err = h.SetLoginToken(ctx, u.Id)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
