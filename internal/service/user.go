@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/lalalalade/webook/internal/domain"
 	"github.com/lalalalade/webook/internal/repository"
+	"github.com/lalalalade/webook/pkg/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,15 +20,18 @@ type UserService interface {
 	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
 	FindOrCreateByWechat(ctx context.Context, wechatInfo domain.WechatInfo) (domain.User, error)
 	Profile(ctx context.Context, id int64) (domain.User, error)
+	UpdateNoneSensitiveInfo(ctx context.Context, user domain.User) error
 }
 
 type userService struct {
 	repo repository.UserRepository
+	l    logger.LoggerV1
 }
 
-func NewUserService(repo repository.UserRepository) UserService {
+func NewUserService(repo repository.UserRepository, l logger.LoggerV1) UserService {
 	return &userService{
 		repo: repo,
+		l:    l,
 	}
 }
 
@@ -64,6 +68,7 @@ func (svc *userService) FindOrCreate(ctx context.Context, phone string) (domain.
 		// 绝大部分请求进来这里
 		return u, err
 	}
+	svc.l.Info("用户未注册", logger.String("phone", phone))
 	// 触发降级
 	//if ctx.Value("降级") == "true" {
 	//	return domain.User{}, errors.New("系统降级了")
@@ -101,4 +106,11 @@ func (svc *userService) FindOrCreateByWechat(ctx context.Context, info domain.We
 func (svc *userService) Profile(ctx context.Context, id int64) (domain.User, error) {
 	// 从缓存取
 	panic("implement me")
+}
+
+func (svc *userService) UpdateNoneSensitiveInfo(ctx context.Context, user domain.User) error {
+	user.Email = ""
+	user.Phone = ""
+	user.Password = ""
+	return svc.repo.Update(ctx, user)
 }

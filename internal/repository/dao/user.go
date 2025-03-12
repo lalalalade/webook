@@ -22,6 +22,7 @@ type UserDAO interface {
 	FindById(ctx context.Context, id int64) (User, error)
 	FindByPhone(ctx context.Context, phone string) (User, error)
 	FindByWechat(ctx context.Context, openId string) (User, error)
+	UpdateNonZeroFields(ctx context.Context, u User) error
 }
 
 type GORMUserDAO struct {
@@ -46,6 +47,10 @@ func (dao *GORMUserDAO) Insert(ctx context.Context, u User) error {
 		}
 	}
 	return err
+}
+
+func (dao *GORMUserDAO) UpdateNonZeroFields(ctx context.Context, u User) error {
+	return dao.db.Updates(u).Error
 }
 
 func (dao *GORMUserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
@@ -84,6 +89,9 @@ type User struct {
 
 	WechatUnionId sql.NullString
 	WechatOpenId  sql.NullString `gorm:"unique"`
+	Nickname      sql.NullString
+	Info          sql.NullString
+	Birthday      sql.NullInt64
 	Ctime         int64
 	UTime         int64
 }

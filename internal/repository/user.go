@@ -22,6 +22,7 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindByWechat(ctx context.Context, openId string) (domain.User, error)
+	Update(ctx context.Context, user domain.User) error
 }
 
 type CachedUserRepository struct {
@@ -63,6 +64,14 @@ func (r *CachedUserRepository) Create(ctx context.Context, u domain.User) error 
 	return r.dao.Insert(ctx, r.domainToEntity(u))
 }
 
+func (r *CachedUserRepository) Update(ctx context.Context, u domain.User) error {
+	err := r.dao.UpdateNonZeroFields(ctx, r.domainToEntity(u))
+	if err != nil {
+		return err
+	}
+	return r.cache.Delete(ctx, u.Id)
+}
+
 func (r *CachedUserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	u, err := r.dao.FindByEmail(ctx, email)
 	if err != nil {
@@ -87,6 +96,10 @@ func (r *CachedUserRepository) FindByWechat(ctx context.Context, openId string) 
 	return r.entityToDomain(u), err
 }
 func (r *CachedUserRepository) entityToDomain(u dao.User) domain.User {
+	var birthday time.Time
+	if u.Birthday.Valid {
+		birthday = time.UnixMilli(u.Birthday.Int64)
+	}
 	return domain.User{
 		Id:       u.Id,
 		Email:    u.Email.String,
@@ -96,7 +109,10 @@ func (r *CachedUserRepository) entityToDomain(u dao.User) domain.User {
 			OpenId:  u.WechatOpenId.String,
 			UnionId: u.WechatUnionId.String,
 		},
-		Ctime: time.UnixMilli(u.Ctime),
+		Info:     u.Info.String,
+		Nickname: u.Nickname.String,
+		Birthday: birthday,
+		Ctime:    time.UnixMilli(u.Ctime),
 	}
 }
 
@@ -119,6 +135,18 @@ func (r *CachedUserRepository) domainToEntity(u domain.User) dao.User {
 		WechatUnionId: sql.NullString{
 			String: u.WechatInfo.UnionId,
 			Valid:  u.WechatInfo.UnionId != "",
+		},
+		Birthday: sql.NullInt64{
+			Int64: u.Birthday.UnixMilli(),
+			Valid: !u.Birthday.IsZero(),
+		},
+		Nickname: sql.NullString{
+			String: u.Nickname,
+			Valid:  u.Nickname != "",
+		},
+		Info: sql.NullString{
+			String: u.Info,
+			Valid:  u.Info != "",
 		},
 		Ctime: u.Ctime.UnixMilli(),
 	}

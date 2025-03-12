@@ -10,8 +10,9 @@ import (
 	"github.com/lalalalade/webook/internal/domain"
 	"github.com/lalalalade/webook/internal/service"
 	ijwt "github.com/lalalalade/webook/internal/web/jwt"
-	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"net/http"
+	"time"
 )
 
 var _ handler = (*UserHandler)(nil)
@@ -25,7 +26,6 @@ type UserHandler struct {
 	emailExp    *regexp.Regexp
 	passwordExp *regexp.Regexp
 	ijwt.Handler
-	cmd redis.Cmdable
 }
 
 func NewUserHandler(svc service.UserService, codeSvc service.CodeService,
@@ -75,7 +75,7 @@ func (u *UserHandler) LogoutJWT(ctx *gin.Context) {
 }
 func (u *UserHandler) RefreshToken(ctx *gin.Context) {
 	// 只有这个接口， 拿出来的才是 refresh_token 其他地方都是 access_token
-	refreshToken := u.ExactToken(ctx)
+	refreshToken := u.ExtractToken(ctx)
 	var rc ijwt.RefreshClaims
 	token, err := jwt.ParseWithClaims(refreshToken, &rc, func(token *jwt.Token) (interface{}, error) {
 		return ijwt.RtKey, nil
@@ -240,6 +240,7 @@ func (u *UserHandler) LoginSMS(ctx *gin.Context) {
 			Code: 5,
 			Msg:  "系统错误",
 		})
+		zap.L().Error("校验验证码出错", zap.Error(err))
 		return
 	}
 	if !ok {
@@ -278,7 +279,54 @@ func (u *UserHandler) Logout(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "退出登录成功")
 }
 func (u *UserHandler) Edit(ctx *gin.Context) {
-
+	type Req struct {
+		Nickname string `json:"nickname" binding:"required"`
+		Birthday string `json:"birthday" binding:"required"`
+		Info     string `json:"info" binding:"required"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	if req.Nickname == "" {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "昵称不能为空",
+		})
+		return
+	}
+	if len(req.Info) > 1024 {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "简介过长",
+		})
+		return
+	}
+	birthday, err := time.Parse(time.DateOnly, req.Birthday)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "日期格式不对",
+		})
+		return
+	}
+	uc := ctx.MustGet("claims").(*ijwt.UserClaims)
+	err = u.svc.UpdateNoneSensitiveInfo(ctx, domain.User{
+		Id:       uc.Uid,
+		Nickname: req.Nickname,
+		Birthday: birthday,
+		Info:     req.Info,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Msg: "OK",
+	})
 }
 func (u *UserHandler) Profile(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "这是你的profile")

@@ -1,11 +1,14 @@
 package ioc
 
 import (
+	"context"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/lalalalade/webook/internal/web"
 	ijwt "github.com/lalalalade/webook/internal/web/jwt"
 	"github.com/lalalalade/webook/internal/web/middleware"
+	"github.com/lalalalade/webook/pkg/ginx/middlewares/logger"
+	logger2 "github.com/lalalalade/webook/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"strings"
 	"time"
@@ -19,9 +22,13 @@ func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler, oauth2Wecha
 	return server
 }
 
-func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler) []gin.HandlerFunc {
+func InitMiddlewares(redisClient redis.Cmdable,
+	l logger2.LoggerV1, jwtHdl ijwt.Handler) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		corsHdl(),
+		logger.NewBuilder(func(ctx context.Context, al *logger.AccessLog) {
+			l.Debug("HTTP请求", logger2.Field{Key: "al", Value: al})
+		}).AllowReqBody().AllowRespBody().Build(),
 		middleware.NewLoginJWTMiddlewareBuilder(jwtHdl).
 			IgnorePaths("/users/signup").
 			IgnorePaths("/users/login_sms/code/send").
