@@ -6,6 +6,7 @@ import (
 	logger2 "github.com/lalalalade/webook/pkg/logger"
 )
 
+// InitOAuth2WechatService 初始化微信OAuth2服务
 func InitOAuth2WechatService(l logger2.LoggerV1) wechat.Service {
 	appId := "asdfbjqe"
 	appSecret := "asdfjkl"

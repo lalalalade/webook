@@ -13,6 +13,7 @@ func LoggerExample() {
 	l.Info("用户未注册，手机号码是 %s", phone)
 }
 
+// LoggerV1 定义日志接口
 type LoggerV1 interface {
 	Debug(msg string, args ...Field)
 	Info(msg string, args ...Field)

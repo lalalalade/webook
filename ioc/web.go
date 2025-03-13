@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// InitWebServer 初始化web服务
 func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler, oauth2WechatHdl *web.OAuth2WechatHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(mdls...)
@@ -22,6 +23,7 @@ func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler, oauth2Wecha
 	return server
 }
 
+// InitMiddlewares 初始化中间件
 func InitMiddlewares(redisClient redis.Cmdable,
 	l logger2.LoggerV1, jwtHdl ijwt.Handler) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
@@ -42,6 +44,7 @@ func InitMiddlewares(redisClient redis.Cmdable,
 	}
 }
 
+// corsHdl 跨域中间件
 func corsHdl() gin.HandlerFunc {
 	return cors.New(cors.Config{
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},

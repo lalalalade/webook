@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// InitSMSService 初始化短信服务
 func InitSMSService(cmd redis.Cmdable) sms.Service {
 	svc := ratelimit.NewRatelimitSMSService(memory.NewService(),
 		limiter.NewRedisSlideWindowLimiter(cmd, time.Second, 100))

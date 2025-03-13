@@ -2,6 +2,7 @@ package logger
 
 import "go.uber.org/zap"
 
+// ZapLogger 是LoggerV1的具体实现
 type ZapLogger struct {
 	l *zap.Logger
 }

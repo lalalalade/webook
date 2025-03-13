@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// InitDB 初始化数据库
 func InitDB(l logger.LoggerV1) *gorm.DB {
 	type Config struct {
 		DSN string `yaml:"dsn"`
