@@ -12,8 +12,14 @@ services:
       # 映射为 13316 端口
       - "13316:3306"
   redis:
-    image: 'bitnami/redis:latest'
+    image: 'bitnami/redis:7.2'
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
     ports:
       - '6379:6379'
+  etcd:
+    image: 'bitnami/etcd:3.5.9'
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+    ports:
+      - 12379:2379

@@ -26,19 +26,11 @@ func NewArticleHandler(svc service.ArticleService, l logger.LoggerV1) *ArticleHa
 func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	g := server.Group("/articles")
 	g.POST("/edit", h.Edit)
-	g.GET("/article", h.GetArticleList)
-}
-
-func (h *ArticleHandler) GetArticleList(ctx *gin.Context) {
-	// get article list
+	g.POST("/publish", h.Publish)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
-	type Req struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
-	}
-	var req Req
+	var req ArticleReq
 	if err := ctx.Bind(&req); err != nil {
 		return
 	}
@@ -50,13 +42,7 @@ func (h *ArticleHandler) Edit(ctx *gin.Context) {
 		return
 	}
 	// 检测输入，先跳过
-	id, err := h.svc.Save(ctx, domain.Article{
-		Title:   req.Title,
-		Content: req.Content,
-		Author: domain.Author{
-			Id: claims.Uid,
-		},
-	})
+	id, err := h.svc.Save(ctx, req.toDomain(claims.Uid))
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
@@ -70,4 +56,50 @@ func (h *ArticleHandler) Edit(ctx *gin.Context) {
 		Msg:  "ok",
 		Data: id,
 	})
+}
+
+func (h *ArticleHandler) Publish(ctx *gin.Context) {
+	var req ArticleReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	c := ctx.MustGet("claims")
+	claims, ok := c.(*ijwt.UserClaims)
+	if !ok {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		h.l.Error("未发现用户的 session 信息")
+		return
+	}
+	// 检测输入，先跳过
+	id, err := h.svc.Publish(ctx, req.toDomain(claims.Uid))
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		h.l.Error("发表文章失败", logger.Error(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Code: 0,
+		Msg:  "ok",
+		Data: id,
+	})
+}
+
+type ArticleReq struct {
+	Id      int64  `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+func (req ArticleReq) toDomain(uid int64) domain.Article {
+	return domain.Article{
+		Id:      req.Id,
+		Title:   req.Title,
+		Content: req.Content,
+		Author: domain.Author{
+			Id: uid,
+		},
+	}
 }
