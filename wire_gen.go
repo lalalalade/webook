@@ -11,6 +11,7 @@ import (
 	"github.com/lalalalade/webook/internal/repository"
 	"github.com/lalalalade/webook/internal/repository/cache"
 	"github.com/lalalalade/webook/internal/repository/dao"
+	"github.com/lalalalade/webook/internal/repository/dao/article"
 	"github.com/lalalalade/webook/internal/service"
 	"github.com/lalalalade/webook/internal/web"
 	"github.com/lalalalade/webook/internal/web/jwt"
@@ -37,7 +38,7 @@ func InitWebServer() *gin.Engine {
 	wechatService := ioc.InitOAuth2WechatService(loggerV1)
 	wechatHandlerConfig := ioc.NewWechatHandlerConfig()
 	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, wechatHandlerConfig, handler)
-	articleDAO := dao.NewArticleDAO(db)
+	articleDAO := article.NewArticleDAO(db)
 	articleRepository := repository.NewArticleRepository(articleDAO)
 	articleService := service.NewArticleService(articleRepository)
 	articleHandler := web.NewArticleHandler(articleService, loggerV1)

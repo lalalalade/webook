@@ -8,6 +8,7 @@ import (
 	"github.com/lalalalade/webook/internal/repository"
 	"github.com/lalalalade/webook/internal/repository/cache"
 	"github.com/lalalalade/webook/internal/repository/dao"
+	"github.com/lalalalade/webook/internal/repository/dao/article"
 	"github.com/lalalalade/webook/internal/service"
 	"github.com/lalalalade/webook/internal/web"
 	ijwt "github.com/lalalalade/webook/internal/web/jwt"
@@ -20,7 +21,7 @@ func InitWebServer() *gin.Engine {
 		ioc.InitDB, ioc.InitRedis, ioc.InitLogger,
 
 		// 初始化 DAO
-		dao.NewUserDAO, dao.NewArticleDAO,
+		dao.NewUserDAO, article.NewArticleDAO,
 
 		cache.NewUserCache, cache.NewCodeCache,
 

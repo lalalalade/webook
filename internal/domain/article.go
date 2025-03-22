@@ -4,9 +4,11 @@ type Article struct {
 	Id      int64
 	Title   string
 	Content string
-	Author  Author
+	// Author 要从用户来
+	Author Author
 }
 
+// Author 在帖子领域内是一个值对象
 type Author struct {
 	Id   int64
 	Name string

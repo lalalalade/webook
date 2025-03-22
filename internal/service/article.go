@@ -11,12 +11,13 @@ import (
 type ArticleService interface {
 	Save(ctx context.Context, art domain.Article) (int64, error)
 	Publish(ctx context.Context, art domain.Article) (int64, error)
+	PublishV1(ctx context.Context, art domain.Article) (int64, error)
 }
 
 type articleService struct {
 	repo repository.ArticleRepository
 
-	// V1
+	// V1 依靠两个不同的 repo 来解决这种跨表，跨库的问题
 	author repository.ArticleAuthorRepository
 	reader repository.ArticleReaderRepository
 	l      logger.LoggerV1
@@ -54,9 +55,8 @@ func (a *articleService) update(ctx context.Context, art domain.Article) error {
 }
 
 func (a *articleService) Publish(ctx context.Context, art domain.Article) (int64, error) {
-	// 制作库
-	//id, err := a.repo.Create(ctx, art)
-	panic("implement me")
+
+	return a.repo.SyncV1(ctx, art)
 }
 
 func (a *articleService) PublishV1(ctx context.Context, art domain.Article) (int64, error) {

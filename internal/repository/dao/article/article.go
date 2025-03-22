@@ -1,15 +1,18 @@
-package dao
+package article
 
 import (
 	"context"
 	"fmt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"time"
 )
 
 type ArticleDAO interface {
 	Insert(ctx context.Context, dao Article) (int64, error)
-	UpdateById(ctx context.Context, article Article) error
+	UpdateById(ctx context.Context, art Article) error
+	Sync(ctx context.Context, art Article) (int64, error)
+	Upsert(ctx context.Context, art PublishArticle) error
 }
 
 type GORMArticleDAO struct {
@@ -48,6 +51,45 @@ func (dao *GORMArticleDAO) UpdateById(ctx context.Context, art Article) error {
 		return fmt.Errorf("更新失败，可能是创作者非法 id %d, author_id %d", art.Id, art.AuthorId)
 	}
 	return res.Error
+}
+
+func (dao *GORMArticleDAO) Sync(ctx context.Context, art Article) (int64, error) {
+	var (
+		id = art.Id
+	)
+	// 先操作制作表 再操作线上表
+	// 在事务内部 采用闭包形态
+	// GORM 帮我们管理了事务的生命周期
+	err := dao.db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		txDAO := NewArticleDAO(tx)
+		if id > 0 {
+			err = txDAO.UpdateById(ctx, art)
+		} else {
+			id, err = txDAO.Insert(ctx, art)
+		}
+		if err != nil {
+			return err
+		}
+		// 操作线上库
+		return txDAO.Upsert(ctx, PublishArticle{Article: art})
+	})
+	return id, err
+}
+
+// Upsert INSERT OR UPDATE
+func (dao *GORMArticleDAO) Upsert(ctx context.Context, art PublishArticle) error {
+	now := time.Now().UnixMilli()
+	art.Ctime = now
+	art.Utime = now
+	err := dao.db.Clauses(clause.OnConflict{
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"title":   art.Title,
+			"content": art.Content,
+			"utime":   now,
+		}),
+	}).Create(&art).Error
+	return err
 }
 
 // Article 制作库表
