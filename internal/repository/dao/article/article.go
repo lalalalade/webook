@@ -83,6 +83,12 @@ func (dao *GORMArticleDAO) Upsert(ctx context.Context, art PublishArticle) error
 	art.Ctime = now
 	art.Utime = now
 	err := dao.db.Clauses(clause.OnConflict{
+		// 哪些列冲突
+		//Columns: []clause.Column{{Name: "id"}},
+		// 意思是数据冲突，啥也不干
+		//DoNothing:
+		// 数据冲突了，并且符合where条件的 就会执行 DoUpdates
+		//Where:
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"title":   art.Title,
 			"content": art.Content,
