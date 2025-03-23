@@ -10,6 +10,7 @@ import (
 
 type ArticleService interface {
 	Save(ctx context.Context, art domain.Article) (int64, error)
+	Withdraw(ctx context.Context, art domain.Article) error
 	Publish(ctx context.Context, art domain.Article) (int64, error)
 	PublishV1(ctx context.Context, art domain.Article) (int64, error)
 }
@@ -39,11 +40,16 @@ func NewArticleServiceV1(author repository.ArticleAuthorRepository,
 }
 
 func (a *articleService) Save(ctx context.Context, art domain.Article) (int64, error) {
+	art.Status = domain.ArticleStatusUnPublished
 	if art.Id > 0 {
 		err := a.repo.Update(ctx, art)
 		return art.Id, err
 	}
 	return a.repo.Create(ctx, art)
+}
+
+func (a *articleService) Withdraw(ctx context.Context, art domain.Article) error {
+	return a.repo.SyncStatus(ctx, art.Id, art.Author.Id, domain.ArticleStatusPrivate)
 }
 
 func (a *articleService) update(ctx context.Context, art domain.Article) error {
@@ -55,8 +61,8 @@ func (a *articleService) update(ctx context.Context, art domain.Article) error {
 }
 
 func (a *articleService) Publish(ctx context.Context, art domain.Article) (int64, error) {
-
-	return a.repo.SyncV1(ctx, art)
+	art.Status = domain.ArticleStatusPublished
+	return a.repo.Sync(ctx, art)
 }
 
 func (a *articleService) PublishV1(ctx context.Context, art domain.Article) (int64, error) {

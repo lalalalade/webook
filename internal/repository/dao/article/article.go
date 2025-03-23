@@ -2,6 +2,7 @@ package article
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -13,6 +14,7 @@ type ArticleDAO interface {
 	UpdateById(ctx context.Context, art Article) error
 	Sync(ctx context.Context, art Article) (int64, error)
 	Upsert(ctx context.Context, art PublishArticle) error
+	SyncStatus(ctx context.Context, id int64, author int64, status uint8) error
 }
 
 type GORMArticleDAO struct {
@@ -42,6 +44,7 @@ func (dao *GORMArticleDAO) UpdateById(ctx context.Context, art Article) error {
 		Updates(map[string]any{
 			"title":   art.Title,
 			"content": art.Content,
+			"status":  art.Status,
 			"utime":   art.Utime,
 		})
 	if res.Error != nil {
@@ -92,10 +95,35 @@ func (dao *GORMArticleDAO) Upsert(ctx context.Context, art PublishArticle) error
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"title":   art.Title,
 			"content": art.Content,
+			"status":  art.Status,
 			"utime":   now,
 		}),
 	}).Create(&art).Error
 	return err
+}
+
+func (dao *GORMArticleDAO) SyncStatus(ctx context.Context, id int64, author int64, status uint8) error {
+	now := time.Now().UnixMilli()
+	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&Article{}).Where("id=? AND author_id=?", id, author).
+			Updates(map[string]any{
+				"status": status,
+				"utime":  now,
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			// 要么id错，要么作者不对
+			// 后者情况下，小心攻击
+			return errors.New("误操作非自己的文章")
+		}
+		return tx.Model(&PublishArticle{}).Where("id=?", id).
+			Updates(map[string]any{
+				"status": status,
+				"utime":  now,
+			}).Error
+	})
 }
 
 // Article 制作库表
@@ -104,6 +132,8 @@ type Article struct {
 	Title    string `gorm:"type=varchar(1024)"`
 	Content  string `gorm:"type=BLOB"`
 	AuthorId int64  `gorm:"index"`
-	Ctime    int64
-	Utime    int64
+
+	Status uint8
+	Ctime  int64
+	Utime  int64
 }

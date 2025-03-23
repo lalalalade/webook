@@ -27,6 +27,7 @@ func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	g := server.Group("/articles")
 	g.POST("/edit", h.Edit)
 	g.POST("/publish", h.Publish)
+	g.POST("/withdraw", h.Withdraw)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
@@ -84,6 +85,32 @@ func (h *ArticleHandler) Publish(ctx *gin.Context) {
 		Code: 0,
 		Msg:  "ok",
 		Data: id,
+	})
+}
+
+func (h *ArticleHandler) Withdraw(ctx *gin.Context) {
+	type Req struct {
+		Id int64
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	c := ctx.MustGet("claims")
+	claims, ok := c.(*ijwt.UserClaims)
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		h.l.Error("未发现用户的session信息")
+		return
+	}
+	err := h.svc.Withdraw(ctx, domain.Article{
+		Id: req.Id,
+		Author: domain.Author{
+			Id: claims.Uid,
+		},
 	})
 }
 
