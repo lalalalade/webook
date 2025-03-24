@@ -17,3 +17,10 @@ func Int64(key string, value int64) Field {
 		Value: value,
 	}
 }
+
+func Bool(key string, b bool) Field {
+	return Field{
+		Key:   key,
+		Value: b,
+	}
+}

@@ -9,7 +9,7 @@ import (
 type TimeoutFailoverSMSService struct {
 	svcs []sms.Service
 	idx  int32
-	// 连续超时个数
+	// 连续超时次数
 	cnt int32
 	// 阈值
 	threshold int32
@@ -42,6 +42,7 @@ func (t *TimeoutFailoverSMSService) Send(ctx context.Context, tplId string, args
 		// 超时
 		atomic.AddInt32(&t.cnt, 1)
 	case nil:
+		// 没有任何错误，重置计数器
 		atomic.StoreInt32(&t.cnt, 0)
 	}
 	return err
