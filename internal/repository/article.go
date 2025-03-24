@@ -99,7 +99,7 @@ func (c *CacheArticleRepository) SyncV2(ctx context.Context, art domain.Article)
 	// 操作线上库，保存数据，同步过来
 	// INSERT or UPDATE
 	// 数据库有则更新，没有则插入
-	err = reader.UpsertV2(ctx, dao.PublishArticle{Article: artn})
+	err = reader.UpsertV2(ctx, dao.PublishedArticle(artn))
 	// 执行成功 提交
 	tx.Commit()
 	return id, err
