@@ -112,6 +112,16 @@ func (h *ArticleHandler) Withdraw(ctx *gin.Context) {
 			Id: claims.Uid,
 		},
 	})
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Msg: "ok",
+	})
 }
 
 type ArticleReq struct {
