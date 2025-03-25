@@ -23,7 +23,7 @@ func InitWebServer() *gin.Engine {
 		// 初始化 DAO
 		dao.NewUserDAO, article.NewGORMArticleDAO,
 
-		cache.NewUserCache, cache.NewCodeCache,
+		cache.NewUserCache, cache.NewCodeCache, cache.NewRedisArticleCache,
 
 		repository.NewUserRepository, repository.NewCodeRepository, repository.NewArticleRepository,
 

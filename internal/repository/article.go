@@ -21,12 +21,13 @@ type ArticleRepository interface {
 	SyncStatus(ctx context.Context, id int64, author int64, status domain.ArticlesStatus) error
 	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
 	GetById(ctx context.Context, id int64) (domain.Article, error)
-	preCache(ctx context.Context, data []domain.Article)
+	GetPublishedById(ctx context.Context, id int64) (domain.Article, error)
+	ListPub(ctx context.Context, utime time.Time, offset int, limit int) ([]domain.Article, error)
 }
 
 type CacheArticleRepository struct {
-	dao dao.ArticleDAO
-
+	dao      dao.ArticleDAO
+	userRepo UserRepository
 	// v1 操作两个dao
 	readerDAO dao.ReaderDAO
 	authorDAO dao.AuthorDAO
@@ -127,10 +128,15 @@ func (c *CacheArticleRepository) SyncV2(ctx context.Context, art domain.Article)
 }
 
 func (c *CacheArticleRepository) Sync(ctx context.Context, art domain.Article) (int64, error) {
-	defer func() {
+	id, err := c.dao.Sync(ctx, c.toEntity(art))
+	if err == nil {
 		c.cache.DelFirstPage(ctx, art.Author.Id)
-	}()
-	return c.dao.Sync(ctx, c.toEntity(art))
+		er := c.cache.SetPub(ctx, art)
+		if er != nil {
+			// 不需要特别关心
+		}
+	}
+	return id, err
 }
 
 func (c *CacheArticleRepository) SyncStatus(ctx context.Context, id int64, author int64, status domain.ArticlesStatus) error {
@@ -168,6 +174,10 @@ func (c *CacheArticleRepository) List(ctx context.Context, uid int64, offset int
 }
 
 func (c *CacheArticleRepository) GetById(ctx context.Context, id int64) (domain.Article, error) {
+	cacheArt, err := c.cache.Get(ctx, id)
+	if err == nil {
+		return cacheArt, nil
+	}
 	data, err := c.dao.GetById(ctx, id)
 	if err != nil {
 		return domain.Article{}, err
@@ -182,6 +192,50 @@ func (c *CacheArticleRepository) preCache(ctx context.Context, data []domain.Art
 			c.l.Error("提前预加载缓存失败", logger.Error(err))
 		}
 	}
+}
+
+func (c *CacheArticleRepository) GetPublishedById(ctx context.Context, id int64) (domain.Article, error) {
+	res, err := c.cache.GetPub(ctx, id)
+	if err == nil {
+		return res, err
+	}
+	// 读取线上库数据
+	art, err := c.dao.GetPubById(ctx, id)
+	if err != nil {
+		return domain.Article{}, err
+	}
+	// 组装 user
+	usr, err := c.userRepo.FindById(ctx, art.Id)
+	res = domain.Article{
+		Id:      art.Id,
+		Title:   art.Title,
+		Content: art.Content,
+		Status:  domain.ArticlesStatus(art.Status),
+		Author: domain.Author{
+			Id:   usr.Id,
+			Name: usr.Nickname,
+		},
+		Ctime: time.UnixMilli(art.Ctime),
+		Utime: time.UnixMilli(art.Utime),
+	}
+	go func() {
+		if err = c.cache.SetPub(ctx, res); err != nil {
+			c.l.Error("缓存已发表文章失败",
+				logger.Error(err), logger.Int64("aid", res.Id))
+		}
+	}()
+	return res, nil
+}
+
+func (c *CacheArticleRepository) ListPub(ctx context.Context, utime time.Time, offset int, limit int) ([]domain.Article, error) {
+	val, err := c.dao.ListPubByUtime(ctx, utime, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return slice.Map[dao.PublishedArticle, domain.Article](val, func(idx int, src dao.PublishedArticle) domain.Article {
+		// 偷懒写法
+		return c.toDomain(dao.Article(src))
+	}), nil
 }
 
 func (c *CacheArticleRepository) toEntity(art domain.Article) dao.Article {

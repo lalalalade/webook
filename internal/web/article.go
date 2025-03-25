@@ -34,6 +34,9 @@ func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	// 创作者的查询接口
 	g.POST("/list", h.List)
 	g.GET("/detail/:id", h.Detail)
+
+	pub := g.Group("/pub")
+	pub.GET("/:id", h.PubDetail)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
@@ -212,4 +215,8 @@ func (h *ArticleHandler) Detail(ctx *gin.Context) {
 			Utime:   art.Utime.Format(time.DateTime),
 		},
 	})
+}
+
+func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
+
 }

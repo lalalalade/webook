@@ -15,6 +15,9 @@ type ArticleService interface {
 	PublishV1(ctx context.Context, art domain.Article) (int64, error)
 	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
 	GetById(ctx context.Context, id int64) (domain.Article, error)
+	GetPublishedById(ctx context.Context, id int64) (domain.Article, error)
+	// ListPub 根据更新时间来分页，更新时间必须小于 startTime
+	ListPub(ctx context.Context, startTime time.Time, offset, limit int) ([]domain.Article, error)
 }
 
 type articleService struct {
@@ -109,4 +112,14 @@ func (a *articleService) List(ctx context.Context, uid int64, offset int, limit 
 
 func (a *articleService) GetById(ctx context.Context, id int64) (domain.Article, error) {
 	return a.repo.GetById(ctx, id)
+}
+
+func (a *articleService) GetPublishedById(ctx context.Context, id int64) (domain.Article, error) {
+	return a.repo.GetPublishedById(ctx, id)
+}
+
+func (a *articleService) ListPub(ctx context.Context,
+	startTime time.Time,
+	offset, limit int) ([]domain.Article, error) {
+	return a.repo.ListPub(ctx, startTime, offset, limit)
 }
