@@ -1,12 +1,15 @@
 package web
 
 import (
+	"github.com/ecodeclub/ekit/slice"
 	"github.com/gin-gonic/gin"
 	"github.com/lalalalade/webook/internal/domain"
 	"github.com/lalalalade/webook/internal/service"
 	ijwt "github.com/lalalalade/webook/internal/web/jwt"
 	"github.com/lalalalade/webook/pkg/logger"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 var _ handler = (*ArticleHandler)(nil)
@@ -28,6 +31,9 @@ func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	g.POST("/edit", h.Edit)
 	g.POST("/publish", h.Publish)
 	g.POST("/withdraw", h.Withdraw)
+	// 创作者的查询接口
+	g.POST("/list", h.List)
+	g.GET("/detail/:id", h.Detail)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
@@ -124,19 +130,86 @@ func (h *ArticleHandler) Withdraw(ctx *gin.Context) {
 	})
 }
 
-type ArticleReq struct {
-	Id      int64  `json:"id"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
+func (h *ArticleHandler) List(ctx *gin.Context) {
+	var req ListReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	c := ctx.MustGet("claims")
+	claims, ok := c.(*ijwt.UserClaims)
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		h.l.Error("未发现用户的session信息")
+		return
+	}
+	res, err := h.svc.List(ctx, claims.Uid, req.Offset, req.Limit)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Data: slice.Map[domain.Article, ArticleVO](res, func(idx int, src domain.Article) ArticleVO {
+			return ArticleVO{
+				Id:       src.Id,
+				Title:    src.Title,
+				Abstract: src.Abstract(),
+				Status:   src.Status.ToUint8(),
+				Ctime:    src.Ctime.Format(time.DateTime),
+				Utime:    src.Utime.Format(time.DateTime),
+			}
+		}),
+	})
 }
 
-func (req ArticleReq) toDomain(uid int64) domain.Article {
-	return domain.Article{
-		Id:      req.Id,
-		Title:   req.Title,
-		Content: req.Content,
-		Author: domain.Author{
-			Id: uid,
-		},
+func (h *ArticleHandler) Detail(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "参数错误",
+		})
+		h.l.Error("前端输入的id不对", logger.Error(err))
+		return
 	}
+	usr, ok := ctx.MustGet("user").(ijwt.UserClaims)
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	art, err := h.svc.GetById(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	if art.Author.Id == usr.Uid {
+		h.l.Error("非法访问文章，创作者 ID 不匹配", logger.Int64("uid", usr.Uid))
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "输入有误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Data: ArticleVO{
+			Id:      art.Id,
+			Title:   art.Title,
+			Status:  art.Status.ToUint8(),
+			Content: art.Content,
+			Ctime:   art.Ctime.Format(time.DateTime),
+			Utime:   art.Utime.Format(time.DateTime),
+		},
+	})
 }

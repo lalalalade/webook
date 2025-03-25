@@ -2,9 +2,13 @@ package repository
 
 import (
 	"context"
+	"github.com/ecodeclub/ekit/slice"
 	"github.com/lalalalade/webook/internal/domain"
+	"github.com/lalalalade/webook/internal/repository/cache"
 	dao "github.com/lalalalade/webook/internal/repository/dao/article"
+	"github.com/lalalalade/webook/pkg/logger"
 	"gorm.io/gorm"
+	"time"
 )
 
 type ArticleRepository interface {
@@ -15,6 +19,9 @@ type ArticleRepository interface {
 	SyncV2(ctx context.Context, art domain.Article) (int64, error)
 	Sync(ctx context.Context, art domain.Article) (int64, error)
 	SyncStatus(ctx context.Context, id int64, author int64, status domain.ArticlesStatus) error
+	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
+	GetById(ctx context.Context, id int64) (domain.Article, error)
+	preCache(ctx context.Context, data []domain.Article)
 }
 
 type CacheArticleRepository struct {
@@ -29,23 +36,37 @@ type CacheArticleRepository struct {
 	// 那么就只能利用 db 开启事务后，创建基于事务的 DAO
 	// 或者，直接去除 DAO 这一层，在 repo 的实现中，直接操作 db（不推荐）
 	db *gorm.DB
+
+	cache cache.ArticleCache
+	l     logger.LoggerV1
 }
 
-func NewArticleRepository(dao dao.ArticleDAO) ArticleRepository {
+func NewArticleRepository(dao dao.ArticleDAO, cache cache.ArticleCache, l logger.LoggerV1) ArticleRepository {
 	return &CacheArticleRepository{
-		dao: dao,
+		dao:   dao,
+		cache: cache,
+		l:     l,
 	}
 }
 
 func (c *CacheArticleRepository) Create(ctx context.Context, art domain.Article) (int64, error) {
+	defer func() {
+		// 清空缓存
+		c.cache.DelFirstPage(ctx, art.Author.Id)
+	}()
 	return c.dao.Insert(ctx, dao.Article{
 		Title:    art.Title,
 		Content:  art.Content,
 		AuthorId: art.Author.Id,
+		Status:   art.Status.ToUint8(),
 	})
 }
 
 func (c *CacheArticleRepository) Update(ctx context.Context, art domain.Article) error {
+	defer func() {
+		// 清空缓存
+		c.cache.DelFirstPage(ctx, art.Author.Id)
+	}()
 	return c.dao.UpdateById(ctx, c.toEntity(art))
 }
 
@@ -106,11 +127,61 @@ func (c *CacheArticleRepository) SyncV2(ctx context.Context, art domain.Article)
 }
 
 func (c *CacheArticleRepository) Sync(ctx context.Context, art domain.Article) (int64, error) {
+	defer func() {
+		c.cache.DelFirstPage(ctx, art.Author.Id)
+	}()
 	return c.dao.Sync(ctx, c.toEntity(art))
 }
 
 func (c *CacheArticleRepository) SyncStatus(ctx context.Context, id int64, author int64, status domain.ArticlesStatus) error {
 	return c.dao.SyncStatus(ctx, id, author, status.ToUint8())
+}
+
+func (c *CacheArticleRepository) List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error) {
+	// 集成复杂的缓存方案
+	// 只缓存第一页
+	if offset == 0 && limit <= 100 {
+		data, err := c.cache.GetFirstPage(ctx, uid)
+		if err == nil {
+			go func() {
+				c.preCache(ctx, data)
+			}()
+			return data, nil
+		}
+	}
+	res, err := c.dao.GetByAuthor(ctx, uid, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	data := slice.Map[dao.Article, domain.Article](res, func(idx int, src dao.Article) domain.Article {
+		return c.toDomain(src)
+	})
+	// 回写缓存 可以同步也可以异步
+	// 高并发-- Del缓存
+	// 不高并发 -- Set缓存
+	go func() {
+		err = c.cache.SetFirstPage(ctx, uid, data)
+		c.l.Error("回写缓存失败", logger.Error(err))
+		c.preCache(ctx, data)
+	}()
+	return data, nil
+}
+
+func (c *CacheArticleRepository) GetById(ctx context.Context, id int64) (domain.Article, error) {
+	data, err := c.dao.GetById(ctx, id)
+	if err != nil {
+		return domain.Article{}, err
+	}
+	return c.toDomain(data), nil
+}
+
+func (c *CacheArticleRepository) preCache(ctx context.Context, data []domain.Article) {
+	if len(data) > 0 && len(data[0].Content) < 1024*1024 {
+		err := c.cache.Set(ctx, data[0])
+		if err != nil {
+			c.l.Error("提前预加载缓存失败", logger.Error(err))
+		}
+	}
 }
 
 func (c *CacheArticleRepository) toEntity(art domain.Article) dao.Article {
@@ -120,5 +191,19 @@ func (c *CacheArticleRepository) toEntity(art domain.Article) dao.Article {
 		Content:  art.Content,
 		AuthorId: art.Author.Id,
 		Status:   art.Status.ToUint8(),
+	}
+}
+
+func (c *CacheArticleRepository) toDomain(art dao.Article) domain.Article {
+	return domain.Article{
+		Id:      art.Id,
+		Title:   art.Title,
+		Content: art.Content,
+		Status:  domain.ArticlesStatus(art.Status),
+		Author: domain.Author{
+			Id: art.AuthorId,
+		},
+		Ctime: time.UnixMilli(art.Ctime),
+		Utime: time.UnixMilli(art.Utime),
 	}
 }

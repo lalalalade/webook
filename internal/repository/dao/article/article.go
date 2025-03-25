@@ -67,6 +67,11 @@ func (dao *GORMArticleDAO) GetPubById(ctx context.Context, id int64) (PublishedA
 
 func (dao *GORMArticleDAO) GetByAuthor(ctx context.Context, author int64, offset, limit int) ([]Article, error) {
 	var arts []Article
+	// SELECT * FROM XXX WHERE XX order by aaa
+	// 在设计order by语句的适合，要注意让order by中的数据命中索引
+	// SQL优化案例：早期的时候，order by没有命中索引，内存排序慢
+	// 我加入了索引 优化了这个查询
+	// author_id => author_id, utime 的联合索引
 	err := dao.db.WithContext(ctx).Model(&Article{}).
 		Where("author_id = ?", author).
 		Offset(offset).

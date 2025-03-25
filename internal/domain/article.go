@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type Article struct {
 	Id      int64
 	Title   string
@@ -7,6 +9,16 @@ type Article struct {
 	// Author 要从用户来
 	Author Author
 	Status ArticlesStatus
+	Ctime  time.Time
+	Utime  time.Time
+}
+
+func (a Article) Abstract() string {
+	cs := []rune(a.Content)
+	if len(cs) < 100 {
+		return a.Content
+	}
+	return string(cs[:100])
 }
 
 type ArticlesStatus uint8
